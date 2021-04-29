@@ -1,17 +1,6 @@
 version: "3.9"
 services:
-  flaskappc:
-    build: .
-    ports:
-      - "5000:5000"
-    environment: 
-        FLASK_DEBUG: "True"
-        FLASK_APP: "8inf349"
-  redisc:
-    image: redis:alpine
-    environment: 
-        REDIS_URL: redis://localhost
-  postgresc:
+  db:
     image: postgres:12
     restart: always
     environment: 
@@ -19,8 +8,25 @@ services:
         POSTGRES_PASSWORD: "pass"
         POSTGRES_DB: "8inf349"
         POSTGRES_HOST_AUTH_METHOD: trust
-  adminerc:
+    ports:
+      - 5432:5432
+    volumes:
+      - volume-postgres:/var/lib/postgressql/data
+  flaskapp:
+    build: .
+    ports:
+      - "5000:5000"
+    environment: 
+        FLASK_DEBUG: "True"
+        FLASK_APP: "8inf349"
+  redis:
+    image: redis:alpine
+    environment: 
+        REDIS_URL: redis://localhost
+  adminer:
     image: adminer
     restart: always
     ports:
         - 8080:8080
+volumes:
+  volume-postgres:

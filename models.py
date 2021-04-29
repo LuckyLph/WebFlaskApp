@@ -7,9 +7,15 @@ import sqlite3
 import requests
 from peewee import *
 import click
+import psycopg2
 
-DATABASE = 'products.sqlite'
-database = SqliteDatabase(DATABASE)
+database = PostgresqlDatabase(
+    database='8inf349',
+    user='user',
+    password='pass',
+    host='host.docker.internal',
+    port='5432'
+)
 
 class BaseModel(Model):
     class Meta:
@@ -117,8 +123,12 @@ def initialize(app):
 @click.command("init-db")
 @with_appcontext
 def init_db_command():
-    database = SqliteDatabase(DATABASE)
-    if os.path.exists("products.sqlite"):
-        os.remove("products.sqlite")
+    database = PostgresqlDatabase(
+        database='8inf349',
+        user='user',
+        password='pass',
+        host='host.docker.internal',
+        port='5432'
+    )
     create_tables()
     click.echo("Initialized the database.")

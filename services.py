@@ -10,10 +10,11 @@ import json
 import requests
 import models
 import os
+import psycopg2
 
 def create_app(configuration = None):
     app = Flask(__name__, instance_relative_config=True)
-    app.config.from_mapping(DATABASE=os.path.join(app.instance_path, "products.sqlite"), SECRET_KEY="secret_key")
+    #app.config.from_mapping(DATABASE=os.path.join(app.instance_path, "products.sqlite"), SECRET_KEY="secret_key")
 
     if configuration != None:
         app.config.update(configuration)
