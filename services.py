@@ -14,7 +14,6 @@ import psycopg2
 
 def create_app(configuration = None):
     app = Flask(__name__, instance_relative_config=True)
-    #app.config.from_mapping(DATABASE=os.path.join(app.instance_path, "products.sqlite"), SECRET_KEY="secret_key")
 
     if configuration != None:
         app.config.update(configuration)
@@ -92,8 +91,9 @@ def create_app(configuration = None):
             order = model_to_dict(order)
             if order["transaction"] == None:
                 order["transaction"] = {}
-            if order["transaction"]["error"] == None:
-                order["transaction"]["error"] = {}
+            else:               
+                if order["transaction"]["error"] == None:
+                    order["transaction"]["error"] = {}
             if order["creditCard"] == None:
                 order["creditCard"] = {}
             if order["shippingInformation"] == None:
@@ -135,11 +135,11 @@ def create_app(configuration = None):
                     return make_response(jsonify({"errors" : {"order": {"code" : "missing-fields", "name" : "Il manque3 un ou plusieurs champs qui sont obligatoires"}}})), 422
 
                 shipping_information = models.ShippingInformation.create(
-                    country = country_received,
-                    address = address_received,
-                    postalCode = postal_code_received,
-                    city = city_received,
-                    province = province_received
+                    country = country_received.replace("\x00", "\uFFFD"),
+                    address = address_received.replace("\x00", "\uFFFD"),
+                    postalCode = postal_code_received.replace("\x00", "\uFFFD"),
+                    city = city_received.replace("\x00", "\uFFFD"),
+                    province = province_received.replace("\x00", "\uFFFD")
                 )
 
                 order.email = email_received
@@ -149,8 +149,9 @@ def create_app(configuration = None):
                 order = model_to_dict(order)
                 if order["transaction"] == None:
                     order["transaction"] = {}
-                if order["transaction"]["error"] == None:
-                    order["transaction"]["error"] = {}
+                else:
+                    if order["transaction"]["error"] == None:
+                        order["transaction"]["error"] = {}
                 if order["creditCard"] == None:
                     order["creditCard"] = {}
                 if order["shippingInformation"] == None:
@@ -194,14 +195,14 @@ def create_app(configuration = None):
                 
                 if json_data.get("success") is False:
                     error = models.Error.create(
-                        code = "card-declined",
-                        name = json_data.get("message")
+                        code = "card-declined".replace("\x00", "\uFFFD"),
+                        name = json_data.get("message").replace("\x00", "\uFFFD")
                     )
                     if (orderDict["transaction"] is not None):
                         transToDel = models.Transaction.get_by_id(id)
                         transToDel.delete_instance()
                     transaction = models.Transaction.create(
-                        id = str(id),
+                        id = str(id).replace("\x00", "\uFFFD"),
                         success = False,
                         error = error,
                         amountCharged = orderDict["totalPrice"] + orderDict["shippingPrice"]
@@ -211,9 +212,9 @@ def create_app(configuration = None):
                     return make_response(jsonify({"errors" : {"credit_card": {"code" : "card-declined", "name" : "La carte de crédit a été déclinée"}}})), 422             
         
                 credit_card = models.CreditCard.create(
-                    name = name_received,
-                    firstDigits = first_digits_received,
-                    lastDigits = last_digits_received,
+                    name = name_received.replace("\x00", "\uFFFD"),
+                    firstDigits = first_digits_received.replace("\x00", "\uFFFD"),
+                    lastDigits = last_digits_received.replace("\x00", "\uFFFD"),
                     expirationYear = expiration_year_received,
                     expirationMonth = expiration_month_received
                 )
@@ -227,7 +228,7 @@ def create_app(configuration = None):
                     transToDel = models.Transaction.get_by_id(id)
                     transToDel.delete_instance()
                 transaction = models.Transaction.create(
-                    id = id_received,
+                    id = id_received.replace("\x00", "\uFFFD"),
                     success = success_received,
                     error = None,
                     amountCharged = amount_charged_received,
@@ -241,8 +242,9 @@ def create_app(configuration = None):
                 order = model_to_dict(order)
                 if order["transaction"] == None:
                     order["transaction"] = {}
-                if order["transaction"]["error"] == None:
-                    order["transaction"]["error"] = {}
+                else:
+                    if order["transaction"]["error"] == None:
+                        order["transaction"]["error"] = {}
                 if order["creditCard"] == None:
                     order["creditCard"] = {}
                 if order["shippingInformation"] == None:

@@ -38,7 +38,7 @@ class Product(BaseModel):
         tableName = "products"
 
 class ShippingInformation(BaseModel):
-    id = IntegerField(primary_key=True, index= True)
+    id = AutoField()
     country = TextField(null = True)
     address = TextField(null = True)
     postalCode = TextField(null = True)
@@ -49,12 +49,12 @@ class ShippingInformation(BaseModel):
         table_name = "shippingInformations"
 
 class CreditCard(BaseModel):
-    id = IntegerField(primary_key=True, index= True)
+    id = AutoField()
     name = TextField(null = True)
     firstDigits = TextField(null = True)
     lastDigits = TextField(null = True)
-    expirationYear = TextField(null = True)
-    expirationMonth = TextField(null = True)
+    expirationYear = IntegerField(null = True)
+    expirationMonth = IntegerField(null = True)
 
     class Meta:
         table_name = "creditCards"
@@ -76,7 +76,7 @@ class Transaction(BaseModel):
         table_name = "transactions"
 
 class Order(BaseModel):
-    id = IntegerField(primary_key=True, unique=True)
+    id = AutoField()
     shippingInformation = ForeignKeyField(ShippingInformation, null = True)
     creditCard = ForeignKeyField(CreditCard, null = True)
     transaction = ForeignKeyField(Transaction, null = True)
@@ -115,10 +115,10 @@ def create_tables():
         for i in json_data['products']:
             product = Product.create(
                 id = int(i['id']),
-                name = i['name'],
-                typeOf = i['type'],
-                description = i['description'],
-                image = i['image'],
+                name = i['name'].replace("\x00", "\uFFFD"),
+                typeOf = i['type'].replace("\x00", "\uFFFD"),
+                description = i['description'].replace("\x00", "\uFFFD"),
+                image = i['image'].replace("\x00", "\uFFFD"),
                 height = i['height'],
                 weight = i['weight'],
                 price = i['price'],
