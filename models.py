@@ -8,6 +8,7 @@ import requests
 from peewee import *
 import click
 import psycopg2
+import os
 
 database = PostgresqlDatabase(
     database='8inf349',
@@ -58,9 +59,17 @@ class CreditCard(BaseModel):
     class Meta:
         table_name = "creditCards"
 
+class Error(BaseModel):
+    code = TextField(null = True)
+    name = TextField(null = True)
+
+    class Meta:
+        table_name = "errors"
+
 class Transaction(BaseModel):
     id = TextField(primary_key=True, unique=True)
     success = BooleanField(null = True)
+    error = ForeignKeyField(Error, null = True)
     amountCharged = FloatField(null = True)
 
     class Meta:
@@ -85,7 +94,7 @@ class OrderProduct(BaseModel):
     quantity = IntegerField()
 
     class Meta:
-        table_name = "orderProducts"
+        table_name = "orderProducts"               
 
 def db_connection():
     conn = None
@@ -98,8 +107,8 @@ def db_connection():
 # simple utility function to create tables
 def create_tables():
     with database:
-        database.drop_tables([Product, ShippingInformation, CreditCard, Transaction, Order, OrderProduct])
-        database.create_tables([Product, ShippingInformation, CreditCard, Transaction, Order, OrderProduct])
+        database.drop_tables([Product, ShippingInformation, CreditCard, Error, Transaction, Order, OrderProduct])
+        database.create_tables([Product, ShippingInformation, CreditCard, Error, Transaction, Order, OrderProduct])
         
         url = 'http://jgnault.ddns.net/shops/products/'
         json_data = requests.get(url).json()
