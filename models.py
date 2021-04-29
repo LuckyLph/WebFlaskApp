@@ -26,9 +26,6 @@ class Product(BaseModel):
     price = FloatField()
     rating = IntegerField()
     inStock = BooleanField()
-        
-    def __str__(self):
-        return self.name
 
     class Meta:
         tableName = "products"
@@ -40,9 +37,6 @@ class ShippingInformation(BaseModel):
     postalCode = TextField(null = True)
     city = TextField(null = True)
     province = TextField(null = True)
-    
-    def __str__(self):
-        return "Shipping to {0}, {1}, {2}, {3}, {4} ".format(self.address, self.postalCode, self.city, self.province, self.country)
 
     class Meta:
         table_name = "shippingInformations"
@@ -54,9 +48,6 @@ class CreditCard(BaseModel):
     lastDigits = TextField(null = True)
     expirationYear = TextField(null = True)
     expirationMonth = TextField(null = True)
-    
-    def __str__(self):
-        return "Credit card [{0}] owned by '{1}'".format(self.id, self.name)
 
     class Meta:
         table_name = "creditCards"
@@ -65,9 +56,6 @@ class Transaction(BaseModel):
     id = TextField(primary_key=True, unique=True)
     success = BooleanField(null = True)
     amountCharged = FloatField(null = True)
-    
-    def __str__(self):
-        return "Transaction [{0}] of {1}$".format(self.id, self.amountCharged)
 
     class Meta:
         table_name = "transactions"
@@ -82,9 +70,6 @@ class Order(BaseModel):
     paid = BooleanField(default = False)
     shippingPrice = FloatField()
     
-    def __str__(self):
-        return "Order [{0}] made by {1}, {2} the total amount of {3}$".format(self.id, self.email, "paid" if self.paid else "didn't pay", self.totalPrice)
-
     class Meta:
         table_name = "orders"
 

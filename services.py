@@ -34,37 +34,44 @@ def create_app(configuration = None):
     def create_order():
         if request.is_json:
             req = request.get_json()
-            product_received = req.get("product")
-            if product_received is None:
-                return make_response(jsonify({"errors" : {"product": {"code" : "missing-fields", "name" : "La création d'une commande nécessite un produit"}}})), 422
-            id_received = product_received.get("id")
-            quantity_received = product_received.get("quantity")
-            if id_received is None or quantity_received is None:
-                return make_response(jsonify({"errors" : {"product": {"code" : "missing-fields", "name" : "La création d'une commande nécessite un produit"}}})), 422
-            if request.method == 'POST':
-                try:
-                    product = models.Product.get_by_id(product_received["id"])
-                except DoesNotExist:
-                    product = None
-                if product != None and product.inStock:
-                    totalPrice = product.price * product_received["quantity"]
-                    weight = product.weight * product_received["quantity"]
-                    if weight * quantity_received < 500:
-                        shippingPrice = 5
-                    elif weight * quantity_received < 2000:
-                        shippingPrice = 10
-                    elif weight * quantity_received >= 2000:
-                        shippingPrice = 25             
-
-                    order = models.Order.create(shippingPrice=shippingPrice, totalPrice=totalPrice)
-                    models.OrderProduct.create(order=order, product=product, quantity=quantity_received)
-                   
-                    return make_response(jsonify({"Location" : "order/{0}".format(order.id) })), 302
-
+            product_received = req.get("products")
+            totalPrice = 0;
+            weight = 0;
+            for i in product_received:                
+                if i is None:
+                    return make_response(jsonify({"errors" : {"product": {"code" : "missing-fields", "name" : "La création d'une commande nécessite un produit"}}})), 422
+                id_received = i.get("id")
+                quantity_received = i.get("quantity")
+                if id_received is None or quantity_received is None:
+                    return make_response(jsonify({"errors" : {"product": {"code" : "missing-fields", "name" : "La création d'une commande nécessite un produit"}}})), 422
+                if request.method == 'POST':
+                    try:
+                        product = models.Product.get_by_id(i["id"])
+                    except DoesNotExist:
+                        product = None
+                    if product != None and product.inStock:
+                        totalPrice += product.price * quantity_received
+                        weight += product.weight * quantity_received       
+                    else:
+                        return make_response(jsonify({"errors" : {"product": {"code" : "out-of-inventory", "name" : "Le produit demandé n'est pas en inventaire"}}})), 422
                 else:
-                    return make_response(jsonify({"errors" : {"product": {"code" : "out-of-inventory", "name" : "Le produit demandé n'est pas en inventaire"}}})), 422
-            else:
-                return "Bad request method", 400
+                    return "Bad request method", 400
+                            
+            if weight < 500:
+                shippingPrice = 5
+            elif weight < 2000:
+                shippingPrice = 10
+            elif weight >= 2000:
+                shippingPrice = 25      
+                
+            order = models.Order.create(shippingPrice=shippingPrice, totalPrice=totalPrice)
+            for i in product_received:
+                product = models.Product.get_by_id(i["id"])
+                quantity_received = i.get("quantity")
+                models.OrderProduct.create(order=order, product=product, quantity=quantity_received)
+           
+            return make_response(jsonify({"Location" : "order/{0}".format(order.id) })), 302
+                
         else:
             return "No JSON received", 400   
 
@@ -88,9 +95,7 @@ def create_app(configuration = None):
                 order["creditCard"] = {}
             if order["shippingInformation"] == None:
                 order["shippingInformation"] = {}
-            orderProduct = models.OrderProduct.get_by_id(id)
-            orderProduct = model_to_dict(orderProduct)
-            order["product"] = { "id":orderProduct["product"], "quantity":orderProduct["quantity"]}
+            order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
             res = make_response(jsonify({"order" : order}), 200)
             return res, 200
                 
@@ -147,7 +152,7 @@ def create_app(configuration = None):
                     order["shippingInformation"] = {}
                 orderProduct = models.OrderProduct.get_by_id(id)
                 orderProduct = model_to_dict(orderProduct)
-                order["product"] = { "id":orderProduct["product"], "quantity":orderProduct["quantity"]}
+                order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
                 res = make_response(jsonify({"order" : order}), 200)
                 return res, 200
         
@@ -218,9 +223,11 @@ def create_app(configuration = None):
                     order["shippingInformation"] = {}
                 orderProduct = models.OrderProduct.get_by_id(id)
                 orderProduct = model_to_dict(orderProduct)
-                order["product"] = { "id":orderProduct["product"], "quantity":orderProduct["quantity"]}
+                order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
                 res = make_response(jsonify({"order" : order}), 200)
                 return res, 200  
-                
+          
+            if orderDict["paid"] == True:
+                    return make_response(jsonify({"errors" : {"order": {"code" : "already-paid", "name" : "La commande a déjà été payée."}}})), 422
 
     return app
