@@ -6,4 +6,5 @@ ADD services.py .
 ADD products.sqlite .
 ADD requirements.txt .
 ENTRYPOINT python work.py
+EXPOSE 5000
 RUN pip install -r requirements.txt
