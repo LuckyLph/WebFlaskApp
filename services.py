@@ -91,6 +91,8 @@ def create_app(configuration = None):
             order = model_to_dict(order)
             if order["transaction"] == None:
                 order["transaction"] = {}
+            if order["transaction"]["error"] == None:
+                order["transaction"]["error"] = {}
             if order["creditCard"] == None:
                 order["creditCard"] = {}
             if order["shippingInformation"] == None:
@@ -146,6 +148,8 @@ def create_app(configuration = None):
                 order = model_to_dict(order)
                 if order["transaction"] == None:
                     order["transaction"] = {}
+                if order["transaction"]["error"] == None:
+                    order["transaction"]["error"] = {}
                 if order["creditCard"] == None:
                     order["creditCard"] = {}
                 if order["shippingInformation"] == None:
@@ -187,13 +191,23 @@ def create_app(configuration = None):
                 url = 'http://jgnault.ddns.net/shops/pay/'
                 json_data = requests.post(url, data=json.dumps(json_to_send)).json()
                 
-                if json_data.get("errors") is not None:
-                    return make_response(json_data['transaction']), 422
-                
-                transaction_received = json_data.get("transaction")
-                id_received = transaction_received.get("id")
-                success_received = transaction_received.get("success")
-                amount_charged_received = transaction_received.get("amount_charged")
+                if json_data.get("success") is False:
+                    error = models.Error.create(
+                        code = "card-declined",
+                        name = json_data.get("message")
+                    )
+                    if (orderDict["transaction"] is not None):
+                        transToDel = models.Transaction.get_by_id(id)
+                        transToDel.delete_instance()
+                    transaction = models.Transaction.create(
+                        id = str(id),
+                        success = False,
+                        error = error,
+                        amountCharged = orderDict["totalPrice"] + orderDict["shippingPrice"]
+                    )   
+                    order.transaction = transaction
+                    order.save()         
+                    return make_response(jsonify({"errors" : {"credit_card": {"code" : "card-declined", "name" : "La carte de crédit a été déclinée"}}})), 422             
         
                 credit_card = models.CreditCard.create(
                     name = name_received,
@@ -202,10 +216,19 @@ def create_app(configuration = None):
                     expirationYear = expiration_year_received,
                     expirationMonth = expiration_month_received
                 )
+                                
+                transaction_received = json_data.get("transaction")
+                id_received = transaction_received.get("id")
+                success_received = transaction_received.get("success")
+                amount_charged_received = transaction_received.get("amount_charged")                
                 
+                if (orderDict["transaction"] is not None):
+                    transToDel = models.Transaction.get_by_id(id)
+                    transToDel.delete_instance()
                 transaction = models.Transaction.create(
                     id = id_received,
                     success = success_received,
+                    error = None,
                     amountCharged = amount_charged_received,
                 )
                     
@@ -217,6 +240,8 @@ def create_app(configuration = None):
                 order = model_to_dict(order)
                 if order["transaction"] == None:
                     order["transaction"] = {}
+                if order["transaction"]["error"] == None:
+                    order["transaction"]["error"] = {}
                 if order["creditCard"] == None:
                     order["creditCard"] = {}
                 if order["shippingInformation"] == None:
