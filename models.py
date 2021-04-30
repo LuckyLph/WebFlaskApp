@@ -10,13 +10,16 @@ import click
 import psycopg2
 import os
 
-database = PostgresqlDatabase(
-    database='8inf349',
-    user='user',
-    password='pass',
-    host='host.docker.internal',
-    port='5432'
-)
+def get_db():
+    return {
+        "user": os.environ.get('DB_USER', 'root'),
+        "password": os.environ.get('DB_PASSWORD', 'password'),
+        "host": os.environ.get('DB_HOST', 'localhost'),
+        "port": int(os.environ.get('DB_PORT', '5432')),
+    }
+
+DATABASE_NAME = os.environ.get('DB_NAME', '8inf349')
+database = PostgresqlDatabase(DATABASE_NAME, **get_db())
 
 class BaseModel(Model):
     class Meta:
@@ -132,12 +135,6 @@ def initialize(app):
 @click.command("init-db")
 @with_appcontext
 def init_db_command():
-    database = PostgresqlDatabase(
-        database='8inf349',
-        user='user',
-        password='pass',
-        host='host.docker.internal',
-        port='5432'
-    )
+    database = PostgresqlDatabase(DATABASE_NAME, **get_db())
     create_tables()
     click.echo("Initialized the database.")

@@ -41,8 +41,8 @@ def create_app(configuration = None):
         if request.is_json:
             req = request.get_json()
             product_received = req.get("products")
-            totalPrice = 0;
-            weight = 0;
+            totalPrice = 0
+            weight = 0
             for i in product_received:                
                 if i is None:
                     return make_response(jsonify({"errors" : {"product": {"code" : "missing-fields", "name" : "La création d'une commande nécessite un produit"}}})), 422
