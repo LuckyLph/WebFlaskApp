@@ -277,8 +277,3 @@ def create_app(configuration = None):
                     return make_response(jsonify({"errors" : {"order": {"code" : "already-paid", "name" : "La commande a déjà été payée."}}})), 422
 
     return app
-    
-@app.cli.command("worker")
-def rq_worker():
-    worker = Worker([task_manager], connection=redis_cache)
-    worker.work()
