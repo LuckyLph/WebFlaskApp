@@ -7,10 +7,16 @@ from functools import wraps
 from hashlib import md5
 from peewee import *
 import json
+import click
 import requests
 import models
 import os
 import psycopg2
+import redis
+from rq import Queue, Worker
+
+redis_cache = redis.Redis(host='redis', port=6379, db=0)
+task_manager = Queue(connection=redis_cache)
 
 def create_app(configuration = None):
     app = Flask(__name__, instance_relative_config=True)
@@ -81,7 +87,13 @@ def create_app(configuration = None):
             if (id is None):
                 order = None 
             else:
-                order = models.Order.get_by_id(id)
+                #order = models.Order.get_by_id(id)
+                order = redis_cache.get(id)
+                if (order is None):
+                    order = models.Order.get_by_id(id)
+                else:
+                    res = make_response(json.loads(order), 200)
+                    return res, 200
         except DoesNotExist:
             order = None
             
@@ -107,7 +119,12 @@ def create_app(configuration = None):
                 if (id is None):
                     order = None 
                 else:
-                    order = models.Order.get_by_id(id)
+                    # order = models.Order.get_by_id(id)
+                    order = redis_cache.get(id)
+                    if (order is None):
+                        order = models.Order.get_by_id(id)
+                    else:
+                        return make_response(jsonify({"errors" : {"order": {"code" : "already-paid", "name" : "La commande a déjà été payée."}}})), 422
             except DoesNotExist:
                 order = None
                 
@@ -253,9 +270,15 @@ def create_app(configuration = None):
                 orderProduct = model_to_dict(orderProduct)
                 order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
                 res = make_response(jsonify({"order" : order}), 200)
+                redis_cache.set(id, json.dumps({"order" : order}))
                 return res, 200  
           
             if orderDict["paid"] == True:
                     return make_response(jsonify({"errors" : {"order": {"code" : "already-paid", "name" : "La commande a déjà été payée."}}})), 422
 
     return app
+    
+@app.cli.command("worker")
+def rq_worker():
+    worker = Worker([task_manager], connection=redis_cache)
+    worker.work()
