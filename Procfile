@@ -1,1 +1,1 @@
-web: FLASK_APP=poll flask run --host=0.0.0.0 --port=$PORT
+web: FLASK_APP=8inf349 flask run --host=0.0.0.0 --port=$PORT
