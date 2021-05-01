@@ -17,7 +17,9 @@ import redis
 from redis import Redis
 from rq import Queue, Worker
 
-redis_cache = redis.Redis(host='redis', port=6379, db=0)
+REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
+redis_cache = redis.Redis(REDIS_HOST)
+#redis = Redis.from_url("redis://localhost")
 task_manager = Queue(connection=redis_cache)
 
 def create_app(configuration = None):
@@ -31,7 +33,7 @@ def create_app(configuration = None):
     except OSError:
         pass
     models.initialize(app)
-    app.cli.add_command(rq_worker)
+    #app.cli.add_command(rq_worker)
 
     @app.route('/')
     def products():  
@@ -91,9 +93,9 @@ def create_app(configuration = None):
                 if (id is None):
                     order = None 
                 else:
-                    job = task_manager.fetch_job(str(id))
-                    if not job.is_finished:
-                        return ('', 202)
+                    # job = task_manager.get(id)
+                    # if not job.is_finished:
+                        # return ('', 202)
                     order = redis_cache.get(id)
                     if (order is None):
                         order = models.Order.get_by_id(id)
@@ -125,9 +127,9 @@ def create_app(configuration = None):
                 if (id is None):
                     order = None 
                 else:
-                    job = task_manager.fetch_job(str(id))
-                    if not job.is_finished:
-                        return ('', 409)
+                    # job = task_manager.get(id)
+                    # if not job.is_finished:
+                        # return ('', 409)
                     order = redis_cache.get(id)
                     if (order is None):
                         order = models.Order.get_by_id(id)
@@ -204,174 +206,173 @@ def create_app(configuration = None):
                 if name_received is None or number_received is None or expiration_year_received is None or expiration_month_received is None or cvv_received is None:
                     return make_response(jsonify({"errors" : {"order": {"code" : "missing-fields", "name" : "Il manque5 un ou plusieurs champs qui sont obligatoires"}}})), 422                        
                                
-                json_data = task_manager.enqueue(pay_command)
+                # json_data = task_manager.enqueue(pay_command)
                 
-                # json_to_send = {
-                        # "credit_card" : {
-                            # "name" : name_received,
-                            # "number" : number_received,
-                            # "expiration_year" : expiration_year_received,
-                            # "cvv" : cvv_received,
-                            # "expiration_month" : expiration_month_received
-                        # },
-                        # "amount_charged" : orderDict["totalPrice"] + orderDict["shippingPrice"]
-                    # }
+                json_to_send = {
+                        "credit_card" : {
+                            "name" : name_received,
+                            "number" : number_received,
+                            "expiration_year" : expiration_year_received,
+                            "cvv" : cvv_received,
+                            "expiration_month" : expiration_month_received
+                        },
+                        "amount_charged" : orderDict["totalPrice"] + orderDict["shippingPrice"]
+                    }
                     
-                # url = 'http://jgnault.ddns.net/shops/pay/'
-                # json_data = requests.post(url, data=json.dumps(json_to_send)).json()
+                url = 'http://jgnault.ddns.net/shops/pay/'
+                json_data = requests.post(url, data=json.dumps(json_to_send)).json()
                 
-                # if json_data.get("success") is False:
-                    # error = models.Error.create(
-                        # code = "card-declined".replace("\x00", "\uFFFD"),
-                        # name = json_data.get("message").replace("\x00", "\uFFFD")
-                    # )
-                    # if (orderDict["transaction"] is not None):
-                        # transToDel = models.Transaction.get_by_id(id)
-                        # transToDel.delete_instance()
-                    # transaction = models.Transaction.create(
-                        # id = str(id).replace("\x00", "\uFFFD"),
-                        # success = False,
-                        # error = error,
-                        # amountCharged = orderDict["totalPrice"] + orderDict["shippingPrice"]
-                    # )   
-                    # order.transaction = transaction
-                    # order.save()         
-                    # return make_response(jsonify({"errors" : {"credit_card": {"code" : "card-declined", "name" : "La carte de crédit a été déclinée"}}})), 422             
+                if json_data.get("success") is False:
+                    error = models.Error.create(
+                        code = "card-declined".replace("\x00", "\uFFFD"),
+                        name = json_data.get("message").replace("\x00", "\uFFFD")
+                    )
+                    if (orderDict["transaction"] is not None):
+                        transToDel = models.Transaction.get_by_id(id)
+                        transToDel.delete_instance()
+                    transaction = models.Transaction.create(
+                        id = str(id).replace("\x00", "\uFFFD"),
+                        success = False,
+                        error = error,
+                        amountCharged = orderDict["totalPrice"] + orderDict["shippingPrice"]
+                    )   
+                    order.transaction = transaction
+                    order.save()         
+                    return make_response(jsonify({"errors" : {"credit_card": {"code" : "card-declined", "name" : "La carte de crédit a été déclinée"}}})), 422             
 
-                # credit_card = models.CreditCard.create(
-                    # name = name_received.replace("\x00", "\uFFFD"),
-                    # firstDigits = first_digits_received.replace("\x00", "\uFFFD"),
-                    # lastDigits = last_digits_received.replace("\x00", "\uFFFD"),
-                    # expirationYear = expiration_year_received,
-                    # expirationMonth = expiration_month_received
-                # )
+                credit_card = models.CreditCard.create(
+                    name = name_received.replace("\x00", "\uFFFD"),
+                    firstDigits = first_digits_received.replace("\x00", "\uFFFD"),
+                    lastDigits = last_digits_received.replace("\x00", "\uFFFD"),
+                    expirationYear = expiration_year_received,
+                    expirationMonth = expiration_month_received
+                )
                                 
-                # transaction_received = json_data.get("transaction")
-                # id_received = transaction_received.get("id")
-                # success_received = transaction_received.get("success")
-                # amount_charged_received = transaction_received.get("amount_charged")                
+                transaction_received = json_data.get("transaction")
+                id_received = transaction_received.get("id")
+                success_received = transaction_received.get("success")
+                amount_charged_received = transaction_received.get("amount_charged")                
                 
-                # if (orderDict["transaction"] is not None):
-                    # transToDel = models.Transaction.get_by_id(id)
-                    # transToDel.delete_instance()
-                # transaction = models.Transaction.create(
-                    # id = id_received.replace("\x00", "\uFFFD"),
-                    # success = success_received,
-                    # error = None,
-                    # amountCharged = amount_charged_received,
-                # )
+                if (orderDict["transaction"] is not None):
+                    transToDel = models.Transaction.get_by_id(id)
+                    transToDel.delete_instance()
+                transaction = models.Transaction.create(
+                    id = id_received.replace("\x00", "\uFFFD"),
+                    success = success_received,
+                    error = None,
+                    amountCharged = amount_charged_received,
+                )
                     
-                # order.paid = True
-                # order.creditCard = credit_card
-                # order.transaction = transaction
-                # order.save()           
+                order.paid = True
+                order.creditCard = credit_card
+                order.transaction = transaction
+                order.save()           
 
-                # order = model_to_dict(order)
-                # if order["transaction"] == None:
-                    # order["transaction"] = {}
-                # else:
-                    # if order["transaction"]["error"] == None:
-                        # order["transaction"]["error"] = {}
-                # if order["creditCard"] == None:
-                    # order["creditCard"] = {}
-                # if order["shippingInformation"] == None:
-                    # order["shippingInformation"] = {}
-                # orderProduct = models.OrderProduct.get_by_id(id)
-                # orderProduct = model_to_dict(orderProduct)
-                # order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
-                # res = make_response(jsonify({"order" : order}), 200)
-                # redis_cache.set(id, json.dumps({"order" : order}))
-                # return res, 200
+                order = model_to_dict(order)
+                if order["transaction"] == None:
+                    order["transaction"] = {}
+                else:
+                    if order["transaction"]["error"] == None:
+                        order["transaction"]["error"] = {}
+                if order["creditCard"] == None:
+                    order["creditCard"] = {}
+                if order["shippingInformation"] == None:
+                    order["shippingInformation"] = {}
+                orderProduct = models.OrderProduct.get_by_id(id)
+                orderProduct = model_to_dict(orderProduct)
+                order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
+                res = make_response(jsonify({"order" : order}), 200)
+                redis_cache.set(id, json.dumps({"order" : order}))
+                return res, 200
                               
-                return ('', 202)
+                # return ('', 202)
           
             if orderDict["paid"] == True:
                     return make_response(jsonify({"errors" : {"order": {"code" : "already-paid", "name" : "La commande a déjà été payée."}}})), 422
 
     return app
    
-def pay_command():
-    json_to_send = {
-            "credit_card" : {
-                "name" : name_received,
-                "number" : number_received,
-                "expiration_year" : expiration_year_received,
-                "cvv" : cvv_received,
-                "expiration_month" : expiration_month_received
-            },
-            "amount_charged" : orderDict["totalPrice"] + orderDict["shippingPrice"]
-        }
+# def pay_command():
+    # json_to_send = {
+            # "credit_card" : {
+                # "name" : name_received,
+                # "number" : number_received,
+                # "expiration_year" : expiration_year_received,
+                # "cvv" : cvv_received,
+                # "expiration_month" : expiration_month_received
+            # },
+            # "amount_charged" : orderDict["totalPrice"] + orderDict["shippingPrice"]
+        # }
         
-    url = 'http://jgnault.ddns.net/shops/pay/'
-    json_data = requests.post(url, data=json.dumps(json_to_send)).json()
+    # url = 'http://jgnault.ddns.net/shops/pay/'
+    # json_data = requests.post(url, data=json.dumps(json_to_send)).json()
     
-    if json_data.get("success") is False:
-        error = models.Error.create(
-            code = "card-declined".replace("\x00", "\uFFFD"),
-            name = json_data.get("message").replace("\x00", "\uFFFD")
-        )
-        if (orderDict["transaction"] is not None):
-            transToDel = models.Transaction.get_by_id(id)
-            transToDel.delete_instance()
-        transaction = models.Transaction.create(
-            id = str(id).replace("\x00", "\uFFFD"),
-            success = False,
-            error = error,
-            amountCharged = orderDict["totalPrice"] + orderDict["shippingPrice"]
-        )   
-        order.transaction = transaction
-        order.save()         
-        return make_response(jsonify({"errors" : {"credit_card": {"code" : "card-declined", "name" : "La carte de crédit a été déclinée"}}})), 422             
+    # if json_data.get("success") is False:
+        # error = models.Error.create(
+            # code = "card-declined".replace("\x00", "\uFFFD"),
+            # name = json_data.get("message").replace("\x00", "\uFFFD")
+        # )
+        # if (orderDict["transaction"] is not None):
+            # transToDel = models.Transaction.get_by_id(id)
+            # transToDel.delete_instance()
+        # transaction = models.Transaction.create(
+            # id = str(id).replace("\x00", "\uFFFD"),
+            # success = False,
+            # error = error,
+            # amountCharged = orderDict["totalPrice"] + orderDict["shippingPrice"]
+        # )   
+        # order.transaction = transaction
+        # order.save()         
+        # return make_response(jsonify({"errors" : {"credit_card": {"code" : "card-declined", "name" : "La carte de crédit a été déclinée"}}})), 422             
 
-    credit_card = models.CreditCard.create(
-        name = name_received.replace("\x00", "\uFFFD"),
-        firstDigits = first_digits_received.replace("\x00", "\uFFFD"),
-        lastDigits = last_digits_received.replace("\x00", "\uFFFD"),
-        expirationYear = expiration_year_received,
-        expirationMonth = expiration_month_received
-    )
+    # credit_card = models.CreditCard.create(
+        # name = name_received.replace("\x00", "\uFFFD"),
+        # firstDigits = first_digits_received.replace("\x00", "\uFFFD"),
+        # lastDigits = last_digits_received.replace("\x00", "\uFFFD"),
+        # expirationYear = expiration_year_received,
+        # expirationMonth = expiration_month_received
+    # )
                     
-    transaction_received = json_data.get("transaction")
-    id_received = transaction_received.get("id")
-    success_received = transaction_received.get("success")
-    amount_charged_received = transaction_received.get("amount_charged")                
+    # transaction_received = json_data.get("transaction")
+    # id_received = transaction_received.get("id")
+    # success_received = transaction_received.get("success")
+    # amount_charged_received = transaction_received.get("amount_charged")                
     
-    if (orderDict["transaction"] is not None):
-        transToDel = models.Transaction.get_by_id(id)
-        transToDel.delete_instance()
-    transaction = models.Transaction.create(
-        id = id_received.replace("\x00", "\uFFFD"),
-        success = success_received,
-        error = None,
-        amountCharged = amount_charged_received,
-    )
+    # if (orderDict["transaction"] is not None):
+        # transToDel = models.Transaction.get_by_id(id)
+        # transToDel.delete_instance()
+    # transaction = models.Transaction.create(
+        # id = id_received.replace("\x00", "\uFFFD"),
+        # success = success_received,
+        # error = None,
+        # amountCharged = amount_charged_received,
+    # )
         
-    order.paid = True
-    order.creditCard = credit_card
-    order.transaction = transaction
-    order.save()           
+    # order.paid = True
+    # order.creditCard = credit_card
+    # order.transaction = transaction
+    # order.save()           
 
-    order = model_to_dict(order)
-    if order["transaction"] == None:
-        order["transaction"] = {}
-    else:
-        if order["transaction"]["error"] == None:
-            order["transaction"]["error"] = {}
-    if order["creditCard"] == None:
-        order["creditCard"] = {}
-    if order["shippingInformation"] == None:
-        order["shippingInformation"] = {}
-    orderProduct = models.OrderProduct.get_by_id(id)
-    orderProduct = model_to_dict(orderProduct)
-    order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
-    res = make_response(jsonify({"order" : order}), 200)
-    redis_cache.set(id, json.dumps({"order" : order}))
+    # order = model_to_dict(order)
+    # if order["transaction"] == None:
+        # order["transaction"] = {}
+    # else:
+        # if order["transaction"]["error"] == None:
+            # order["transaction"]["error"] = {}
+    # if order["creditCard"] == None:
+        # order["creditCard"] = {}
+    # if order["shippingInformation"] == None:
+        # order["shippingInformation"] = {}
+    # orderProduct = models.OrderProduct.get_by_id(id)
+    # orderProduct = model_to_dict(orderProduct)
+    # order["products"] = list(map(lambda x: { "id":x["product"], "quantity":x["quantity"] }, list(models.OrderProduct.select().where(models.OrderProduct.order == order["id"]).dicts())))
+    # res = make_response(jsonify({"order" : order}), 200)
+    # redis_cache.set(id, json.dumps({"order" : order}))
     
-    return json_data
+    # return json_data
 
-@click.command("worker")
-@with_appcontext
-def rq_worker():
-    worker = Worker([task_manager], connection=redis_cache)
-    worker.work()
-    worker.work()
+# @click.command("worker")
+# @with_appcontext
+# def rq_worker():
+    # worker = Worker([task_manager], connection=redis_cache)
+    # worker.work()

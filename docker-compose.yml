@@ -19,15 +19,14 @@ services:
     environment: 
         FLASK_DEBUG: "True"
         FLASK_APP: "8inf349"
+        REDIS_HOST: redis
   redis:
     image: redis:alpine
     restart: always
     environment: 
-        REDIS_URL: redis://redis
+        REDIS_URL: redis://localhost
     ports:
       - 6379:6379
-    expose:
-      - '6379'
   adminer:
     image: adminer
     restart: always
