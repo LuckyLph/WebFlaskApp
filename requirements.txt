@@ -2,5 +2,5 @@ flask
 peewee
 requests
 redis
-rq
 psycopg2-binary==2.8.4
+rq
